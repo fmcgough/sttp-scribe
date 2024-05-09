@@ -22,12 +22,19 @@ import com.github.scribejava.core.model.{OAuth1AccessToken, OAuthRequest, Verb}
 import com.github.scribejava.core.oauth.OAuth10aService
 import org.scalamock.matchers.ArgCapture.CaptureAll
 import org.scalamock.scalatest.MockFactory
+import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import software.purpledragon.sttp.scribe.MonadAdaptor.Implicits._
 import sttp.client._
+import sttp.client.monad.{FutureMonad, IdMonad, MonadError}
 import sttp.model.{MediaType, StatusCode}
 
-class ScribeOAuth10aBackendSpec extends AnyFlatSpec with Matchers with MockFactory with ScribeHelpers {
+import java.util.concurrent.CompletableFuture
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
+
+class ScribeOAuth10aBackendSpec extends AnyFlatSpec with Matchers with MockFactory with ScribeHelpers with Eventually {
 
   "ScribeOAuth10aBackend" should "send get request" in new ScribeOAuth10aFixture {
     // given
@@ -250,11 +257,38 @@ class ScribeOAuth10aBackendSpec extends AnyFlatSpec with Matchers with MockFacto
     )
   }
 
+  it should "be able to execute requests asynchronously" in new ScribeOAuth10aFutureFixture {
+    // given
+    stubResponses(
+      StringResponse("OK")
+    )
+
+    // when
+    val result: Future[Response[Either[String, String]]] = basicRequest
+      .get(uri"https://example.com/api/test")
+      .send()
+
+    // then
+    eventually {
+      result.isCompleted shouldBe true
+      result.value match {
+        case Some(Success(r)) =>
+          r.code shouldBe StatusCode.Ok
+          r.body shouldBe Right("OK")
+        case _ => fail("unexpected error")
+      }
+    }
+
+    verifyRequests(
+      RequestExpectation("https://example.com/api/test")
+    )
+  }
+
   "ScribeOAuth10aBackend(encodingStyle = Scribe)" should "send get request with query params" in
     new ScribeOAuth10aFixture {
       // given
       override protected implicit val backend: SttpBackend[Identity, Nothing, NothingT] =
-        new ScribeOAuth10aBackend(oauthService, tokenProvider, encodingStyle = QueryParamEncodingStyle.Scribe)
+        new ScribeOAuth10aBackend[Identity](oauthService, tokenProvider, encodingStyle = QueryParamEncodingStyle.Scribe)
 
       stubResponses(
         StringResponse("OK")
@@ -276,7 +310,7 @@ class ScribeOAuth10aBackendSpec extends AnyFlatSpec with Matchers with MockFacto
       )
     }
 
-  private trait ScribeOAuth10aFixture {
+  private trait ScribeOAuth10aFixtureBase {
     val oauthService: OAuth10aService = mock[OAuth10aService]
     val tokenProvider: OAuth1TokenProvider = mock[OAuth1TokenProvider]
     val oauthApi: DefaultApi10a = new DefaultApi10a() {
@@ -295,12 +329,7 @@ class ScribeOAuth10aBackendSpec extends AnyFlatSpec with Matchers with MockFacto
     (oauthService.signRequest _).expects(accessToken, capture(requestCaptor))
     (() => oauthService.getApi).expects().returning(oauthApi).anyNumberOfTimes()
 
-    protected implicit val backend: SttpBackend[Identity, Nothing, NothingT] =
-      new ScribeOAuth10aBackend(oauthService, tokenProvider)
-
-    protected def stubResponse(response: TestResponse): Unit = {
-      (oauthService.execute(_: OAuthRequest)).expects(*).returning(response.toResponse)
-    }
+    protected def stubResponse(response: TestResponse): Unit
 
     protected def stubResponses(responses: TestResponse*): Unit = {
       responses.foreach(stubResponse)
@@ -312,6 +341,31 @@ class ScribeOAuth10aBackendSpec extends AnyFlatSpec with Matchers with MockFacto
       requestCaptor.values.zip(requests) foreach { case (request, expected) =>
         expected.verify(request)
       }
+    }
+  }
+
+  private trait ScribeOAuth10aFixture extends ScribeOAuth10aFixtureBase {
+    protected implicit val monadError: MonadError[Identity] = IdMonad
+    protected implicit val backend: SttpBackend[Identity, Nothing, NothingT] =
+      new ScribeOAuth10aBackend(oauthService, tokenProvider)
+
+    protected def stubResponse(response: TestResponse): Unit = {
+      (oauthService.execute(_: OAuthRequest)).expects(*).returning(response.toResponse)
+    }
+  }
+
+  private trait ScribeOAuth10aFutureFixture extends ScribeOAuth10aFixtureBase {
+    private implicit val ec = ExecutionContext.Implicits.global
+    protected implicit val monadError: MonadError[Future] = new FutureMonad
+
+    protected implicit val backend: SttpBackend[Future, Nothing, NothingT] =
+      new ScribeOAuth10aBackend(oauthService, tokenProvider)
+
+    protected def stubResponse(response: TestResponse): Unit = {
+      (oauthService
+        .executeAsync(_: OAuthRequest))
+        .expects(*)
+        .returning(CompletableFuture.completedFuture(response.toResponse))
     }
   }
 }

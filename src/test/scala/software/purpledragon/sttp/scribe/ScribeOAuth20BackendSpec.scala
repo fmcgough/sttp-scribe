@@ -21,13 +21,21 @@ import com.github.scribejava.core.model.{OAuth2AccessToken, OAuthRequest, Verb}
 import com.github.scribejava.core.oauth.OAuth20Service
 import org.scalamock.matchers.ArgCapture.CaptureAll
 import org.scalamock.scalatest.MockFactory
+import org.scalatest.concurrent.Eventually
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import software.purpledragon.sttp.scribe.MonadAdaptor.Implicits._
 import sttp.client._
+import sttp.client.monad.{IdMonad, MonadError}
 import sttp.model.{MediaType, StatusCode}
+import sttp.client.monad.FutureMonad
+
+import java.util.concurrent.CompletableFuture
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
 
 // scalastyle:off null
-class ScribeOAuth20BackendSpec extends AnyFlatSpec with Matchers with MockFactory with ScribeHelpers {
+class ScribeOAuth20BackendSpec extends AnyFlatSpec with Matchers with MockFactory with ScribeHelpers with Eventually {
 
   "ScribeOAuth20Backend" should "send get request" in new ScribeOAuth20Fixture {
     // given
@@ -327,7 +335,34 @@ class ScribeOAuth20BackendSpec extends AnyFlatSpec with Matchers with MockFactor
     )
   }
 
-  private trait ScribeOAuth20Fixture {
+  it should "be able to execute requests asynchronously" in new ScribeOAuth20FutureFixture {
+    // given
+    stubResponses(
+      StringResponse("OK")
+    )
+
+    // when
+    val result: Future[Response[Either[String, String]]] = basicRequest
+      .get(uri"https://example.com/api/test")
+      .send()
+
+    // then
+    eventually {
+      result.isCompleted shouldBe true
+      result.value match {
+        case Some(Success(r)) =>
+          r.code shouldBe StatusCode.Ok
+          r.body shouldBe Right("OK")
+        case _ => fail("unexpected error")
+      }
+    }
+
+    verifyRequests(
+      RequestExpectation("https://example.com/api/test")
+    )
+  }
+
+  private trait ScribeOAuth20FixtureBase {
     val oauthService: OAuth20Service = mock[OAuth20Service]
     val tokenProvider: OAuth2TokenProvider = mock[OAuth2TokenProvider]
 
@@ -340,13 +375,10 @@ class ScribeOAuth20BackendSpec extends AnyFlatSpec with Matchers with MockFactor
     (tokenProvider.accessTokenForRequest _).expects().returning(accessToken).once()
     (oauthService.signRequest(_: OAuth2AccessToken, _: OAuthRequest)).expects(accessToken, capture(requestCaptor))
 
-    protected implicit val backend: SttpBackend[Identity, Nothing, NothingT] =
-      new ScribeOAuth20Backend(oauthService, tokenProvider)
+    protected def stubResponse(response: TestResponse): Unit
 
     protected def stubResponses(responses: TestResponse*): Unit = {
-      responses foreach { response =>
-        (oauthService.execute(_: OAuthRequest)).expects(*).returning(response.toResponse)
-      }
+      responses.foreach(stubResponse)
     }
 
     protected def verifyRequests(requests: RequestExpectation*): Unit = {
@@ -355,6 +387,31 @@ class ScribeOAuth20BackendSpec extends AnyFlatSpec with Matchers with MockFactor
       requestCaptor.values.zip(requests) foreach { case (request, expected) =>
         expected.verify(request)
       }
+    }
+  }
+
+  private trait ScribeOAuth20Fixture extends ScribeOAuth20FixtureBase {
+    protected implicit val monadError: MonadError[Identity] = IdMonad
+    protected implicit val backend: SttpBackend[Identity, Nothing, NothingT] =
+      new ScribeOAuth20Backend(oauthService, tokenProvider)
+
+    protected def stubResponse(response: TestResponse): Unit = {
+      (oauthService.execute(_: OAuthRequest)).expects(*).returning(response.toResponse)
+    }
+  }
+
+  private trait ScribeOAuth20FutureFixture extends ScribeOAuth20FixtureBase {
+    private implicit val ec = ExecutionContext.Implicits.global
+    protected implicit val monadError: MonadError[Future] = new FutureMonad
+
+    protected implicit val backend: SttpBackend[Future, Nothing, NothingT] =
+      new ScribeOAuth20Backend(oauthService, tokenProvider)
+
+    protected def stubResponse(response: TestResponse): Unit = {
+      (oauthService
+        .executeAsync(_: OAuthRequest))
+        .expects(*)
+        .returning(CompletableFuture.completedFuture(response.toResponse))
     }
   }
 }

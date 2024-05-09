@@ -10,6 +10,7 @@ libraryDependencies ++= Seq(
   "com.github.scribejava"         % "scribejava-apis"         % "6.9.0",
   "org.scala-lang.modules"       %% "scala-collection-compat" % "2.12.0",
   "com.github.bigwheel"          %% "util-backports"          % "2.1",
+  "org.scala-lang.modules"       %% "scala-java8-compat"      % "1.0.2",
   "org.scalatest"                %% "scalatest"               % "3.2.18" % Test,
   "org.scalamock"                %% "scalamock"               % "5.2.0"  % Test,
   "commons-io"                    % "commons-io"              % "2.16.1" % Test,

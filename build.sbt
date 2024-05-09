@@ -69,5 +69,5 @@ mimaPreviousArtifacts := Set("software.purpledragon" %% "sttp-scribe" % "2.0.1")
 
 libraryDependencySchemes ++= Seq(
   // override version scheme to prevent version conflict
-  "org.scala-lang.modules" %% "scala-java8-compat" % VersionScheme.Always
+  "org.scala-lang.modules" %% "scala-xml" % VersionScheme.Always
 )

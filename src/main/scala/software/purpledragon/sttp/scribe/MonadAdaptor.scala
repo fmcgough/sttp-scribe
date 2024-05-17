@@ -1,13 +1,13 @@
 package software.purpledragon.sttp.scribe
 
-import com.github.scribejava.core.model.Response
+import com.github.scribejava.core.model.{OAuthRequest, Response}
 import com.github.scribejava.core.oauth.OAuthService
-import com.github.scribejava.core.model.OAuthRequest
 import sttp.client.Identity
-import scala.concurrent.Future
-import scala.compat.java8.FutureConverters._
+
 import java.util.concurrent.CompletableFuture
 import java.util.function.Supplier
+import scala.compat.java8.FutureConverters._
+import scala.concurrent.Future
 
 trait MonadAdaptor[F[_]] {
   def executeRequest(service: OAuthService, request: OAuthRequest): F[Response]
@@ -26,9 +26,11 @@ object MonadAdaptor {
     implicit val future: MonadAdaptor[Future] = new MonadAdaptor[Future] {
       def executeRequest(service: OAuthService, request: OAuthRequest): Future[Response] = {
         val javaFuture = service.executeAsync(request)
-        CompletableFuture.supplyAsync(new Supplier[Response] {
-          def get(): Response = javaFuture.get()
-        }).toScala
+        CompletableFuture
+          .supplyAsync(new Supplier[Response] {
+            def get(): Response = javaFuture.get()
+          })
+          .toScala
       }
     }
   }

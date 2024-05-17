@@ -26,9 +26,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import software.purpledragon.sttp.scribe.MonadAdaptor.Implicits._
 import sttp.client._
-import sttp.client.monad.{IdMonad, MonadError}
+import sttp.client.monad.{FutureMonad, IdMonad, MonadError}
 import sttp.model.{MediaType, StatusCode}
-import sttp.client.monad.FutureMonad
 
 import java.util.concurrent.CompletableFuture
 import scala.concurrent.{ExecutionContext, Future}

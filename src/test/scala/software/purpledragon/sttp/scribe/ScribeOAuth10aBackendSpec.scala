@@ -291,9 +291,9 @@ class ScribeOAuth10aBackendSpec extends AnyFlatSpec with Matchers with MockFacto
     val requestCaptor: CaptureAll[OAuthRequest] = CaptureAll[OAuthRequest]()
 
     // common to all requests
-    (tokenProvider.accessTokenForRequest _).expects().returning(accessToken)
+    (() => tokenProvider.accessTokenForRequest).expects().returning(accessToken)
     (oauthService.signRequest _).expects(accessToken, capture(requestCaptor))
-    (oauthService.getApi _).expects().returning(oauthApi).anyNumberOfTimes()
+    (() => oauthService.getApi).expects().returning(oauthApi).anyNumberOfTimes()
 
     protected implicit val backend: SttpBackend[Identity, Nothing, NothingT] =
       new ScribeOAuth10aBackend(oauthService, tokenProvider)
@@ -309,9 +309,8 @@ class ScribeOAuth10aBackendSpec extends AnyFlatSpec with Matchers with MockFacto
     protected def verifyRequests(requests: RequestExpectation*): Unit = {
       requestCaptor.values should have size requests.size
 
-      requestCaptor.values.zip(requests) foreach {
-        case (request, expected) =>
-          expected.verify(request)
+      requestCaptor.values.zip(requests) foreach { case (request, expected) =>
+        expected.verify(request)
       }
     }
   }

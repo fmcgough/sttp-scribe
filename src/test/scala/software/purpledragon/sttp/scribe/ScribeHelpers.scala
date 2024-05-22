@@ -18,7 +18,7 @@ package software.purpledragon.sttp.scribe
 
 import java.nio.charset.{Charset, StandardCharsets}
 
-import com.github.scribejava.core.model.{OAuthRequest, ParameterList, Verb, Response => ScribeResponse}
+import com.github.scribejava.core.model.{OAuthRequest, ParameterList, Response => ScribeResponse, Verb}
 import org.apache.commons.io.IOUtils
 import org.apache.commons.lang3.reflect.FieldUtils
 import org.scalamock.scalatest.MockFactory
@@ -80,10 +80,10 @@ trait ScribeHelpers extends MockFactory with Matchers {
       (response.getHeaders _).expects().returning(headers.asJava).anyNumberOfTimes()
       (response.getHeader _)
         .expects(*)
-        .onCall({ name: String =>
+        .onCall { name: String =>
           headers.getOrElse(name, null)
-        })
-        .anyNumberOfTimes
+        }
+        .anyNumberOfTimes()
 
       stubBody(response)
 

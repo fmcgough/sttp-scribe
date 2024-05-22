@@ -1,4 +1,4 @@
-import sbt.librarymanagement.{ SemanticSelector, VersionNumber }
+import sbt.librarymanagement.{SemanticSelector, VersionNumber}
 name         := "sttp-scribe"
 organization := "software.purpledragon"
 
@@ -66,17 +66,4 @@ releaseProcess := Seq[ReleaseStep](
   pushChanges
 )
 
-libraryDependencySchemes ++= Seq(
-  // override version scheme to prevent version conflict
-  "org.scala-lang.modules" %% "scala-xml" % VersionScheme.Always
-)
-
-mimaPreviousArtifacts := {
-  if (VersionNumber(version.value).matchesSemVer(SemanticSelector(">=3.0.0-SNAPSHOT"))) {
-    Set.empty
-  } else {
-    Set(
-      "software.purpledragon" %% "sttp-scribe" % "2.0.1",
-      "software.purpledragon" %% "sttp-scribe" % "2.0.2")
-  }
-}
+mimaPreviousArtifacts := Set.empty

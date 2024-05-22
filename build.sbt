@@ -1,9 +1,8 @@
-import sbt.librarymanagement.{SemanticSelector, VersionNumber}
 name         := "sttp-scribe"
 organization := "software.purpledragon"
 
 scalaVersion       := "2.13.14"
-crossScalaVersions := Seq(scalaVersion.value, "2.11.12", "2.12.19")
+crossScalaVersions := Seq(scalaVersion.value, "2.12.19")
 
 libraryDependencies ++= Seq(
   "org.slf4j"                     % "slf4j-api"               % "1.7.36",
@@ -43,7 +42,7 @@ scmInfo              := Some(
 )
 publishTo            := sonatypePublishToBundle.value
 
-import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
+import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations.*
 
 releaseCrossBuild             := true
 releasePublishArtifactsAction := PgpKeys.publishSigned.value

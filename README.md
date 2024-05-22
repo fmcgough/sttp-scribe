@@ -1,6 +1,6 @@
 # sttp-scribe - sttp backend for ScribeJava
 
-[![Build Status](https://img.shields.io/travis/stringbean/sttp-scribe/master.svg)](https://travis-ci.org/stringbean/sttp-scribe)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/stringbean/sttp-scribe/ci.yml)](https://github.com/stringbean/sttp-scribe/actions/workflows/ci.yml)
 [![Codacy Grade](https://img.shields.io/codacy/grade/6becacf763074472b1360c0d41cd8478.svg?label=codacy)](https://www.codacy.com/app/stringbean/sttp-scribe)
 [![Test Coverage](https://img.shields.io/codecov/c/github/stringbean/sttp-scribe/master.svg)](https://codecov.io/gh/stringbean/sttp-scribe)
 [![Maven Central - Scala 2.12](https://img.shields.io/maven-central/v/software.purpledragon/sttp-scribe_2.12.svg?label=scala%202.12)](http://search.maven.org/#search%7Cga%7C1%7Ca%3A%22sttp-scribe_2.12%22)

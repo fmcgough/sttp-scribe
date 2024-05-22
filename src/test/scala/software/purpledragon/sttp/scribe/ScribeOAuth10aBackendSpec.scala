@@ -355,7 +355,7 @@ class ScribeOAuth10aBackendSpec extends AnyFlatSpec with Matchers with MockFacto
   }
 
   private trait ScribeOAuth10aFutureFixture extends ScribeOAuth10aFixtureBase {
-    private implicit val ec = ExecutionContext.Implicits.global
+    private implicit val ec: ExecutionContext = ExecutionContext.Implicits.global
     protected implicit val monadError: MonadError[Future] = new FutureMonad
 
     protected implicit val backend: SttpBackend[Future, Nothing, NothingT] =

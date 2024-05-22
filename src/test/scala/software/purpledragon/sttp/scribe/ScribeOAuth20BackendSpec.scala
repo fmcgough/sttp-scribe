@@ -371,7 +371,7 @@ class ScribeOAuth20BackendSpec extends AnyFlatSpec with Matchers with MockFactor
     val requestCaptor: CaptureAll[OAuthRequest] = CaptureAll[OAuthRequest]()
 
     // common request parts
-    (tokenProvider.accessTokenForRequest _).expects().returning(accessToken).once()
+    (() => tokenProvider.accessTokenForRequest).expects().returning(accessToken).once()
     (oauthService.signRequest(_: OAuth2AccessToken, _: OAuthRequest)).expects(accessToken, capture(requestCaptor))
 
     protected def stubResponse(response: TestResponse): Unit
@@ -400,7 +400,7 @@ class ScribeOAuth20BackendSpec extends AnyFlatSpec with Matchers with MockFactor
   }
 
   private trait ScribeOAuth20FutureFixture extends ScribeOAuth20FixtureBase {
-    private implicit val ec = ExecutionContext.Implicits.global
+    private implicit val ec: ExecutionContext = ExecutionContext.Implicits.global
     protected implicit val monadError: MonadError[Future] = new FutureMonad
 
     protected implicit val backend: SttpBackend[Future, Nothing, NothingT] =

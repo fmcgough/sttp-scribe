@@ -12,3 +12,8 @@ target
 *.sc
 
 .DS_Store
+
+.bloop/
+.bsp/
+.metals/
+metals.sbt

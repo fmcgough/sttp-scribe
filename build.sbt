@@ -2,7 +2,7 @@ name         := "sttp-scribe"
 organization := "software.purpledragon"
 
 scalaVersion       := "2.13.14"
-crossScalaVersions := Seq(scalaVersion.value, "2.11.12", "2.12.19")
+crossScalaVersions := Seq(scalaVersion.value, "2.12.19")
 
 libraryDependencies ++= Seq(
   "org.slf4j"                     % "slf4j-api"               % "1.7.36",
@@ -10,6 +10,7 @@ libraryDependencies ++= Seq(
   "com.github.scribejava"         % "scribejava-apis"         % "6.9.0",
   "org.scala-lang.modules"       %% "scala-collection-compat" % "2.12.0",
   "com.github.bigwheel"          %% "util-backports"          % "2.1",
+  "org.scala-lang.modules"       %% "scala-java8-compat"      % "1.0.2",
   "org.scalatest"                %% "scalatest"               % "3.2.18" % Test,
   "org.scalamock"                %% "scalamock"               % "5.2.0"  % Test,
   "commons-io"                    % "commons-io"              % "2.16.1" % Test,
@@ -41,7 +42,7 @@ scmInfo              := Some(
 )
 publishTo            := sonatypePublishToBundle.value
 
-import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
+import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations.*
 
 releaseCrossBuild             := true
 releasePublishArtifactsAction := PgpKeys.publishSigned.value
@@ -64,4 +65,4 @@ releaseProcess := Seq[ReleaseStep](
   pushChanges
 )
 
-mimaPreviousArtifacts := Set("software.purpledragon" %% "sttp-scribe" % "2.0.1")
+mimaPreviousArtifacts := Set.empty

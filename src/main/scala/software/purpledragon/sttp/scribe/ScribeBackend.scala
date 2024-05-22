@@ -23,7 +23,7 @@ import com.github.scribejava.core.model.{OAuthRequest, Response => ScribeRespons
 import com.github.scribejava.core.oauth.OAuthService
 import software.purpledragon.sttp.scribe.QueryParamEncodingStyle._
 import sttp.client._
-import sttp.client.monad.{IdMonad, MonadError}
+import sttp.client.monad.MonadError
 import sttp.client.ws.WebSocketResponse
 import sttp.model._
 
@@ -32,24 +32,23 @@ import scala.collection.compat.immutable
 import scala.jdk.CollectionConverters._
 import scala.util.Using
 
-abstract class ScribeBackend(
+abstract class ScribeBackend[F[_]: MonadAdaptor: MonadError](
     service: OAuthService,
     isTokenExpiredResponse: TokenExpiredResponseCheck,
     encodingStyle: QueryParamEncodingStyle
-) extends SttpBackend[Identity, Nothing, NothingT] {
+) extends SttpBackend[F, Nothing, NothingT] {
 
   /**
    * Url query parameter encoding is handled slightly differently by sttp and scribe. This allows
    * you to configure which implementation the backend should use.
    */
-  def withEncodingStyle(encodingStyle: QueryParamEncodingStyle): ScribeBackend
+  def withEncodingStyle(encodingStyle: QueryParamEncodingStyle): ScribeBackend[F]
 
-  override def send[T](request: Request[T, Nothing]): Response[T] = {
+  override def send[T](request: Request[T, Nothing]): F[Response[T]] = {
     send(request, retrying = false)
   }
 
-  @tailrec
-  private def send[T](request: Request[T, Nothing], retrying: Boolean): Response[T] = {
+  private def send[T](request: Request[T, Nothing], retrying: Boolean): F[Response[T]] = {
     val (url, params) = encodingStyle match {
       case Sttp =>
         (request.uri.toString, Nil)
@@ -72,49 +71,51 @@ abstract class ScribeBackend(
 
     signRequest(oAuthRequest)
 
-    val response = service.execute(oAuthRequest)
+    val response = implicitly[MonadAdaptor[F]].executeRequest(service, oAuthRequest)
 
-    if (
-      !retrying && response.getCode == StatusCode.Unauthorized.code && isTokenExpiredResponse(response) &&
-      renewAccessToken(response)
-    ) {
-      // renewed access token - retry the request
-      send(request, retrying = true)
-    } else {
-      handleResponse(response, request.response)
+    responseMonad.flatMap(response) { res =>
+      if (!retrying && res.getCode == StatusCode.Unauthorized.code && isTokenExpiredResponse(res) &&
+          renewAccessToken(res)) {
+        // renewed access token - retry the request
+        send(request, retrying = true)
+      } else {
+        handleResponse(res, request.response)
+      }
     }
   }
 
   override def openWebsocket[T, WS_RESULT](
       request: Request[T, Nothing],
       handler: NothingT[WS_RESULT]
-  ): Identity[WebSocketResponse[WS_RESULT]] = {
+  ): F[WebSocketResponse[WS_RESULT]] = {
     // we don't handle websockets
     handler
   }
 
-  override def close(): Identity[Unit] = ()
+  override def close(): F[Unit] = responseMonad.unit(())
 
-  override val responseMonad: MonadError[Identity] = IdMonad
+  override val responseMonad: MonadError[F] = implicitly
 
   protected def signRequest(request: OAuthRequest): Unit
 
   protected def renewAccessToken(response: ScribeResponse): Boolean
 
-  private def handleResponse[T](r: ScribeResponse, responseAs: ResponseAs[T, Nothing]): Response[T] = {
-    val statusCode = StatusCode(r.getCode)
+  private def handleResponse[T](r: ScribeResponse, responseAs: ResponseAs[T, Nothing]): F[Response[T]] = {
+    responseMonad.eval {
+      val statusCode = StatusCode(r.getCode)
 
-    // scribe includes the status line as a header with a key of 'null' :-()
-    val headers = r.getHeaders.asScala.toList
-      .filterNot(_._1 == null)
-      .map(h => Header(h._1, h._2))
+      // scribe includes the status line as a header with a key of 'null' :-()
+      val headers = r.getHeaders.asScala.toList
+        .filterNot(_._1 == null)
+        .map(h => Header(h._1, h._2))
 
-    val metadata = ResponseMetadata(headers, statusCode, r.getMessage)
-    val contentEncoding = Option(r.getHeader(HeaderNames.ContentEncoding))
-    val is = wrapInput(r.getStream, contentEncoding)
-    val body = readResponseBody(is, responseAs, metadata)
+      val metadata = ResponseMetadata(headers, statusCode, r.getMessage)
+      val contentEncoding = Option(r.getHeader(HeaderNames.ContentEncoding))
+      val is = wrapInput(r.getStream, contentEncoding)
+      val body = readResponseBody(is, responseAs, metadata)
 
-    Response(body, statusCode, r.getMessage, headers, Nil)
+      Response(body, statusCode, r.getMessage, headers, Nil)
+    }
   }
 
   private def readResponseBody[T](is: InputStream, responseAs: ResponseAs[T, Nothing], meta: ResponseMetadata): T = {

@@ -20,6 +20,7 @@ import com.github.scribejava.core.exceptions.OAuthException
 import com.github.scribejava.core.model.{OAuth1AccessToken, OAuthRequest, Response, Verb}
 import com.github.scribejava.core.oauth.OAuth10aService
 import software.purpledragon.sttp.scribe.QueryParamEncodingStyle.Sttp
+import sttp.client.monad.MonadError
 
 object ScribeOAuth10aBackend {
   private val TokenExpiredPattern = ".*oauth_problem=token_expired.*".r
@@ -32,17 +33,17 @@ object ScribeOAuth10aBackend {
   }
 }
 
-class ScribeOAuth10aBackend(
+class ScribeOAuth10aBackend[F[_]: MonadAdaptor: MonadError](
     service: OAuth10aService,
     tokenProvider: OAuth1TokenProvider,
     isTokenExpiredResponse: TokenExpiredResponseCheck = ScribeOAuth10aBackend.DefaultTokenExpiredCheck,
     encodingStyle: QueryParamEncodingStyle = Sttp
-) extends ScribeBackend(service, isTokenExpiredResponse, encodingStyle)
+) extends ScribeBackend[F](service, isTokenExpiredResponse, encodingStyle)
     with Logging {
 
   private var oauthToken: Option[OAuth1AccessToken] = None
 
-  override final def withEncodingStyle(style: QueryParamEncodingStyle): ScribeOAuth10aBackend = {
+  override final def withEncodingStyle(style: QueryParamEncodingStyle): ScribeOAuth10aBackend[F] = {
     new ScribeOAuth10aBackend(service, tokenProvider, isTokenExpiredResponse, style)
   }
 
